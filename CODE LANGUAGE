@@ -1,0 +1,84 @@
+import operator
+
+
+class LexerError(Exception):
+    pass
+
+
+class ParserError(Exception):
+    pass
+
+
+class InterpreterError(Exception):
+    pass
+
+
+# Lexer
+def lexer(code):
+    tokens = code.replace("(", " ( ").replace(")", " ) ").split()
+    return tokens
+
+
+# Parser
+def parse(tokens):
+    def parse_expression(token_list):
+        token = token_list.pop(0)
+
+        if token.isdigit():
+            return int(token)
+        elif token in ("+", "-", "*", "/"):
+            if not token_list:
+                raise ParserError("Expected an expression after operator")
+            left = parse_expression(token_list)
+            right = parse_expression(token_list)
+            return (token, left, right)
+        elif token == "(":
+            sub_expression = []
+            while token_list[0] != ")":
+                sub_expression.append(parse_expression(token_list))
+            token_list.pop(0)
+            return sub_expression
+        else:
+            raise ParserError(f"Invalid token: {token}")
+
+    ast = []
+    while tokens:
+        ast.append(parse_expression(tokens))
+    return ast
+
+
+# Interpreter
+def evaluate(ast):
+    def evaluate_expression(expression):
+        if isinstance(expression, int):
+            return expression
+        operator_fn = {
+            "+": operator.add,
+            "-": operator.sub,
+            "*": operator.mul,
+            "/": operator.truediv,
+        }
+        operator_token, left_expression, right_expression = expression
+        operator_fn = operator_fn[operator_token]
+        left_value = evaluate_expression(left_expression)
+        right_value = evaluate_expression(right_expression)
+        try:
+            return operator_fn(left_value, right_value)
+        except ZeroDivisionError:
+            raise InterpreterError("Division by zero")
+
+    if not ast:
+        raise InterpreterError("Empty program")
+    result = evaluate_expression(ast[0])
+    return result
+
+
+# Example usage
+code = "5 + (3 * 2)"
+try:
+    tokens = lexer(code)
+    ast = parse(tokens)
+    result = evaluate(ast)
+    print(f"Result: {result}")
+except (LexerError, ParserError, InterpreterError) as e:
+    print(f"Error: {str(e)}")
